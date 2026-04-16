@@ -1,0 +1,178 @@
+services:
+  # ── Stateful services (persistent volumes) ──────────────────────────
+
+  mongodb:
+    image: mongo:8
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${SERVICE_USER_MONGODB}
+      - MONGO_INITDB_ROOT_PASSWORD=${SERVICE_PASSWORD_MONGODB}
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: mongosh --eval "db.adminCommand('ping')" --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kirjaswappi-net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${SERVICE_PASSWORD_REDIS}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: redis-cli -a ${SERVICE_PASSWORD_REDIS} ping | grep PONG
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kirjaswappi-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=${SERVICE_USER_RABBITMQ}
+      - RABBITMQ_DEFAULT_PASS=${SERVICE_PASSWORD_RABBITMQ}
+    command: >
+      sh -c "rabbitmq-plugins enable --offline rabbitmq_stomp && rabbitmq-server"
+    ports:
+      - '15672:15672'
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - kirjaswappi-net
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=unleash
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U ${SERVICE_USER_POSTGRES} -d unleash
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kirjaswappi-net
+
+  # ── Stateless services ──────────────────────────────────────────────
+
+  unleash:
+    image: unleashorg/unleash-server:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/unleash
+      - DATABASE_SSL=false
+      - INIT_ADMIN_API_TOKENS=${UNLEASH_ADMIN_TOKEN}
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:4242/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - kirjaswappi-net
+
+  backend:
+    image: ghcr.io/kirjaswappi/kirjaswappi-backend:latest
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      unleash:
+        condition: service_healthy
+    ports:
+      - '10000:10000'
+    environment:
+      - SPRING_PROFILES_ACTIVE=cloud
+      # MongoDB
+      - MONGODB_URI=mongodb://${SERVICE_USER_MONGODB}:${SERVICE_PASSWORD_MONGODB}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-kirjaswappi}
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${SERVICE_PASSWORD_REDIS}
+      # RabbitMQ
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_AMQP_PORT=5672
+      - RABBITMQ_STOMP_PORT=61613
+      - RABBITMQ_USERNAME=${SERVICE_USER_RABBITMQ}
+      - RABBITMQ_PASSWORD=${SERVICE_PASSWORD_RABBITMQ}
+      # S3 (external)
+      - S3_URL=${S3_URL}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      # Auth
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://kirjaswappi.fi,https://www.kirjaswappi.fi,https://canary.kirjaswappi.fi}
+      # Unleash
+      - UNLEASH_URL=http://unleash:4242/api
+      - UNLEASH_INSTANCE_ID=${UNLEASH_INSTANCE_ID:-kirjaswappi-prod}
+      - UNLEASH_API_KEY=${UNLEASH_API_KEY}
+      # Email
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USERNAME=${EMAIL_USERNAME}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - EMAIL_FROM=${EMAIL_FROM}
+      # Notification service
+      - NOTIFICATION_SERVICE_HOST=notification
+      - NOTIFICATION_SERVICE_PORT=50051
+      # Frontend URL for CORS/WebSocket
+      - FRONTEND_URL=${FRONTEND_URL:-https://kirjaswappi.fi,https://canary.kirjaswappi.fi}
+    networks:
+      - kirjaswappi-net
+
+  notification:
+    image: ghcr.io/kirjaswappi/kirjaswappi-notification:latest
+    restart: unless-stopped
+    ports:
+      - '50051:50051'
+      - '8080:8080'
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - API_KEY=${NOTIFICATION_API_KEY}
+      - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://kirjaswappi.fi,https://www.kirjaswappi.fi,https://canary.kirjaswappi.fi}
+      - LOG_LEVEL=info
+      - SHUTDOWN_TIMEOUT=30
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - kirjaswappi-net
+
+volumes:
+  mongodb-data:
+  redis-data:
+  rabbitmq-data:
+  postgres-data:
+
+networks:
+  kirjaswappi-net:
+    driver: bridge
