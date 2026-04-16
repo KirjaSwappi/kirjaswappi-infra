@@ -76,6 +76,8 @@ services:
   unleash:
     image: unleashorg/unleash-server:latest
     restart: unless-stopped
+    ports:
+      - '4245:4242'
     depends_on:
       postgres:
         condition: service_healthy
