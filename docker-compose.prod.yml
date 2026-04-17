@@ -96,6 +96,7 @@ services:
 
   backend:
     image: ghcr.io/kirjaswappi/kirjaswappi-backend:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -150,6 +151,7 @@ services:
 
   notification:
     image: ghcr.io/kirjaswappi/kirjaswappi-notification:latest
+    pull_policy: always
     restart: unless-stopped
     ports:
       - '50055:50051'
