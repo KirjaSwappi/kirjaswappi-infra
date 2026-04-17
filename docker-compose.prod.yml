@@ -146,6 +146,9 @@ services:
       - NOTIFICATION_SERVICE_PORT=50051
       # Frontend URL for CORS/WebSocket
       - FRONTEND_URL=${FRONTEND_URL:-https://kirjaswappi.fi,https://www.kirjaswappi.fi}
+      # Super admin seed
+      - SUPER_ADMIN_USERNAME=${SUPER_ADMIN_USERNAME}
+      - SUPER_ADMIN_PASSWORD=${SUPER_ADMIN_PASSWORD}
     networks:
       - kirjaswappi-net
 
