@@ -129,7 +129,7 @@ services:
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       # Auth
       - JWT_SECRET=${JWT_SECRET}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://kirjaswappi.fi,https://www.kirjaswappi.fi,https://canary.kirjaswappi.fi}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://kirjaswappi.fi,https://www.kirjaswappi.fi}
       # Unleash
       - UNLEASH_URL=http://unleash:4242/api
       - UNLEASH_INSTANCE_ID=${UNLEASH_INSTANCE_ID:-kirjaswappi-prod}
@@ -144,7 +144,7 @@ services:
       - NOTIFICATION_SERVICE_HOST=notification
       - NOTIFICATION_SERVICE_PORT=50051
       # Frontend URL for CORS/WebSocket
-      - FRONTEND_URL=${FRONTEND_URL:-https://kirjaswappi.fi,https://canary.kirjaswappi.fi}
+      - FRONTEND_URL=${FRONTEND_URL:-https://kirjaswappi.fi,https://www.kirjaswappi.fi}
     networks:
       - kirjaswappi-net
 
@@ -157,7 +157,7 @@ services:
     environment:
       - JWT_SECRET=${JWT_SECRET}
       - API_KEY=${NOTIFICATION_API_KEY}
-      - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://kirjaswappi.fi,https://www.kirjaswappi.fi,https://canary.kirjaswappi.fi}
+      - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://kirjaswappi.fi,https://www.kirjaswappi.fi}
       - LOG_LEVEL=info
       - SHUTDOWN_TIMEOUT=30
     healthcheck:
