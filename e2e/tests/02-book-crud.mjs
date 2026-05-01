@@ -36,7 +36,7 @@ export async function run() {
   formBody.append('author', 'Test Author');
   formBody.append('language', 'ENGLISH');
   formBody.append('condition', 'GOOD');
-  formBody.append('genreIds', genreId);
+  formBody.append('genres', genreId);
   formBody.append('swapCondition', JSON.stringify({ swapType: 'GIVE_AWAY' }));
 
   const createBook = await post('/api/v1/books', formBody);
