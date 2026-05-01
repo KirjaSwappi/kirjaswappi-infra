@@ -1,8 +1,9 @@
 #!/bin/sh
 # Daily MongoDB dump.
 #
-# Runs inside the mongo-backup container. Reads connection details from env
-# (mounted by docker-compose) and writes timestamped gzipped archives to
+# Runs inside the mongo-backup container. Connection settings are taken from
+# the environment (see docker-compose). Scheduled runs receive env via
+# /etc/kirjaswappi/cron.env because cron does not inherit the container env.
 # /backups, which is a host-mounted volume so dumps survive container churn.
 #
 # Retention is enforced locally; for off-site copies, schedule rsync/aws s3

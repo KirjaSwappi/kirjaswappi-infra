@@ -413,6 +413,8 @@ services:
   # ── Backup sidecar ─────────────────────────────────────────────────
   # Runs mongodump on a daily schedule. Archives land on the host volume
   # `mongo-backups` for off-site replication (rsync/S3 on the host).
+  # Env is written to /etc/kirjaswappi/cron.env at startup because cron jobs
+  # do not inherit Docker environment variables.
   mongo-backup:
     build:
       context: .
@@ -431,15 +433,6 @@ services:
       - BACKUP_CRON=${BACKUP_CRON:-0 3 * * *}
     volumes:
       - mongo-backups:/backups
-    entrypoint: ['/bin/sh', '-c']
-    command:
-      - |
-        set -eu
-        echo "$$BACKUP_CRON /scripts/mongo-backup.sh >> /var/log/cron.log 2>&1" > /etc/cron.d/kirjaswappi-mongo
-        chmod 0644 /etc/cron.d/kirjaswappi-mongo
-        crontab /etc/cron.d/kirjaswappi-mongo
-        touch /var/log/cron.log
-        cron && tail -F /var/log/cron.log
     logging:
       driver: json-file
       options:
