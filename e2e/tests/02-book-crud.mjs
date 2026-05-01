@@ -5,41 +5,34 @@ import { state as authState } from './01-signup-login.mjs';
 export async function run() {
   setToken(authState.token);
 
-  // 1. Get genres (Mongock may have seeded some) or seed one via MongoDB directly
-  const genresRes = await get('/api/v1/genres', { skipAuth: true });
-  let genreId;
-
-  if (genresRes.status === 200 && genresRes.json?.parentGenres && Object.keys(genresRes.json.parentGenres).length > 0) {
-    const firstParent = Object.values(genresRes.json.parentGenres)[0];
-    genreId = firstParent.id;
-    console.log(`    using existing genre: ${Object.keys(genresRes.json.parentGenres)[0]}`);
-  } else {
-    // Seed a genre directly in MongoDB via docker exec
-    const composeFile = process.env.COMPOSE_FILE || '../docker-compose.ci.yml';
-    const seedEval = `const r = db.genres.insertOne({name:'Fiction',parentGenre:null}); print(r.insertedId.toString())`;
-    const seedCmd = `docker compose -f ${composeFile} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${seedEval}"`;
-    try {
-      const result = execSync(seedCmd, { stdio: 'pipe' }).toString().trim();
-      genreId = result;
-      console.log(`    genre seeded via MongoDB: Fiction (${genreId})`);
-    } catch (err) {
-      console.log(`    SKIP: cannot seed genre (${err.message?.substring(0, 100)})`);
-      return;
-    }
+  // Ensure genre "Fiction" exists in MongoDB (Mongock seeds may not run in CI)
+  const composeFile = process.env.COMPOSE_FILE || '../docker-compose.ci.yml';
+  const seedEval = `if(!db.genres.findOne({name:'Fiction'})){db.genres.insertOne({name:'Fiction',parentGenre:null})}`;
+  const seedCmd = `docker compose -f ${composeFile} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${seedEval}"`;
+  try {
+    execSync(seedCmd, { stdio: 'pipe' });
+    console.log('    genre "Fiction" ensured');
+  } catch (err) {
+    console.log(`    SKIP: cannot seed genre (${err.message?.substring(0, 100)})`);
+    return;
   }
 
-  // 3. Create a book (multipart form — requires cover photo)
-  setToken(authState.token);
-
+  // Create a book (multipart form)
   const formBody = new FormData();
   formBody.append('title', 'E2E Test Book');
   formBody.append('author', 'Test Author');
-  formBody.append('language', 'ENGLISH');
-  formBody.append('condition', 'GOOD');
-  formBody.append('genres', genreId);
-  formBody.append('swapCondition', JSON.stringify({ swapType: 'GIVE_AWAY' }));
+  formBody.append('language', 'English');
+  formBody.append('condition', 'Good');
+  formBody.append('genres', 'Fiction');
+  formBody.append('swapCondition', JSON.stringify({
+    swapType: 'GiveAway',
+    giveAway: true,
+    openForOffers: false,
+    genres: null,
+    books: null,
+  }));
 
-  // Create a minimal valid JPEG (1x1 pixel)
+  // Minimal valid JPEG (1x1 pixel, starts with FF D8 FF)
   const jpegBytes = new Uint8Array([
     0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
     0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
@@ -83,14 +76,14 @@ export async function run() {
   const bookId = createBook.json?.id;
   console.log(`    book created: ${bookId}`);
 
-  // 4. Get book by ID
+  // Get book by ID
   const getBook = await get(`/api/v1/books/${bookId}`, { skipAuth: true });
   if (getBook.status !== 200) {
     throw new Error(`Get book failed: ${getBook.status}`);
   }
   console.log('    get book OK');
 
-  // 5. List books (public)
+  // List books (public)
   const listBooks = await get('/api/v1/books', { skipAuth: true });
   if (listBooks.status !== 200) {
     throw new Error(`List books failed: ${listBooks.status}`);

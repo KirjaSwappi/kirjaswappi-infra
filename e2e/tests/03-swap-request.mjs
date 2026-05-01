@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { post, setToken } from '../lib/api-client.mjs';
+import { get, post, setToken } from '../lib/api-client.mjs';
 import { state as authState } from './01-signup-login.mjs';
 
 export async function run() {
@@ -35,11 +35,8 @@ export async function run() {
   const user2Token = login2.json.userToken;
   const user2Id = login2.json.id;
 
-  // Create a swap request (user2 requests a swap with user1's book)
-  // First we need a book from user1 — get books listed by user1
+  // Get books listed by user1
   setToken(authState.token);
-
-  const { get } = await import('../lib/api-client.mjs');
   const booksRes = await get(`/api/v1/users/${authState.userId}/books`);
 
   if (booksRes.status !== 200 || !booksRes.json?.content?.length) {
@@ -55,7 +52,7 @@ export async function run() {
     senderId: user2Id,
     receiverId: authState.userId,
     bookIdToSwapWith: bookId,
-    swapType: 'GIVE_AWAY',
+    swapType: 'GiveAway',
     askForGiveaway: true,
   });
 
