@@ -1,0 +1,26 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: ops-default
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = critical
+      receiver: ops-critical
+      repeat_interval: 1h
+
+receivers:
+  - name: ops-default
+    # URLs expanded when Alertmanager starts with --config.expand-env (see compose).
+    webhook_configs:
+      - url: ${ALERTMANAGER_DEFAULT_WEBHOOK_URL:-http://localhost:9094/silenced}
+        send_resolved: true
+
+  - name: ops-critical
+    webhook_configs:
+      - url: ${ALERTMANAGER_CRITICAL_WEBHOOK_URL:-http://localhost:9094/silenced}
+        send_resolved: true

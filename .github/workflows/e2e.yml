@@ -1,0 +1,81 @@
+name: E2E Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_ref:
+        description: 'Backend branch/SHA to build'
+        required: false
+        default: 'main'
+      notification_ref:
+        description: 'Notification branch/SHA to build'
+        required: false
+        default: 'main'
+  workflow_call:
+    inputs:
+      backend_ref:
+        type: string
+        default: 'main'
+      notification_ref:
+        type: string
+        default: 'main'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout infra
+        uses: actions/checkout@v4
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: KirjaSwappi/kirjaswappi-backend
+          ref: ${{ inputs.backend_ref || 'main' }}
+          path: kirjaswappi-backend
+
+      - name: Checkout notification
+        uses: actions/checkout@v4
+        with:
+          repository: KirjaSwappi/kirjaswappi-notification
+          ref: ${{ inputs.notification_ref || 'main' }}
+          path: kirjaswappi-notification
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install e2e dependencies
+        run: cd e2e && npm ci
+
+      - name: Build and start services
+        run: docker compose -f docker-compose.ci.yml up -d --build
+        timeout-minutes: 10
+
+      - name: Run e2e tests
+        run: cd e2e && node run-tests.mjs
+        env:
+          API_BASE_URL: http://localhost:10000
+          WS_BASE_URL: http://localhost:8080
+          HEALTH_TIMEOUT: '180'
+          ADMIN_EMAIL: admin@kirjaswappi.fi
+          ADMIN_PASSWORD: AdminPass1!
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.ci.yml logs --tail=300 > e2e-logs.txt
+
+      - name: Upload logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: e2e-logs.txt
+          retention-days: 7
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v

@@ -1,0 +1,72 @@
+# Caddyfile for KirjaSwappi production edge.
+# Caddy auto-provisions Let's Encrypt certificates for the configured hosts and
+# redirects HTTP→HTTPS by default. The notification gRPC port (50051) is NEVER
+# exposed publicly — only the HTTP/WebSocket port (8080) is reverse-proxied.
+
+{
+	email {$ACME_EMAIL}
+	# Admin endpoint is loopback-only by default; expose for healthchecks.
+	admin :2019
+	servers {
+		# Sane request size cap; multipart uploads are bounded by Spring config too.
+		max_header_size 16KB
+	}
+}
+
+# ── Backend API (REST + STOMP-over-SockJS WebSocket) ───────────────────
+{$PUBLIC_API_HOST} {
+	encode zstd gzip
+
+	# Auth-adjacent routes: force no-store (rate limiting belongs at the edge/LB or via a Caddy plugin if needed).
+	@auth path /api/v1/users/login* /api/v1/users/signup* /api/v1/users/refresh-token /api/v1/users/reset-password* /api/v1/send-otp /api/v1/verify-otp
+	header @auth Cache-Control "no-store"
+
+	# WebSocket upgrade for STOMP/SockJS
+	@websocket {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @websocket backend:10000
+
+	reverse_proxy backend:10000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	# Hide server info from response headers.
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
+
+# ── Notification HTTP/WebSocket (gRPC stays inside Docker network) ────
+{$PUBLIC_WS_HOST} {
+	encode zstd gzip
+
+	# Block internal endpoints from public access
+	@internal path /metrics /healthz
+	respond @internal 404
+
+	@websocket {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @websocket notification:8080
+
+	reverse_proxy notification:8080 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

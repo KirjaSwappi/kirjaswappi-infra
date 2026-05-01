@@ -1,0 +1,167 @@
+# Minimal stack for CI e2e tests.
+# Excludes: Caddy, Postgres, Unleash, Prometheus, Grafana, Alertmanager, Backup.
+# Builds backend + notification from sibling repo checkouts.
+
+services:
+  mongodb:
+    image: mongo:8
+    ports:
+      - '27017:27017'
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=rootpass
+    healthcheck:
+      test: mongosh --eval "db.adminCommand('ping')" --quiet
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    tmpfs:
+      - /data/db
+    networks:
+      - ci-net
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass redis-ci
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: redis-cli -a redis-ci ping | grep PONG
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ci-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    command: >
+      sh -c "rabbitmq-plugins enable --offline rabbitmq_stomp && rabbitmq-server"
+    ports:
+      - '5672:5672'
+      - '61613:61613'
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    networks:
+      - ci-net
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - '9000:9000'
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    healthcheck:
+      test: mc ready local || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    tmpfs:
+      - /data
+    networks:
+      - ci-net
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "mc alias set local http://minio:9000 minioadmin minioadmin &&
+             mc mb --ignore-existing local/kirjaswappi &&
+             exit 0"
+    networks:
+      - ci-net
+
+  backend:
+    build:
+      context: ./kirjaswappi-backend
+      dockerfile: Dockerfile
+    ports:
+      - '10000:10000'
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      - SPRING_PROFILES_ACTIVE=cloud
+      - KIRJASWAPPI_PRODUCTION=true
+      - MONGODB_URI=mongodb://root:rootpass@mongodb:27017/kirjaswappi_e2e?authSource=admin
+      - MONGODB_DATABASE=kirjaswappi_e2e
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis-ci
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_AMQP_PORT=5672
+      - RABBITMQ_STOMP_PORT=61613
+      - RABBITMQ_USERNAME=guest
+      - RABBITMQ_PASSWORD=guest
+      - S3_URL=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - JWT_SECRET=ci-e2e-test-secret-key-minimum-32-characters-long
+      - CORS_ALLOWED_ORIGINS=*
+      - FRONTEND_URL=http://localhost:5173
+      - UNLEASH_URL=http://localhost:4242/api
+      - UNLEASH_INSTANCE_ID=ci
+      - UNLEASH_API_KEY=dummy-key
+      - EMAIL_HOST=localhost
+      - EMAIL_PORT=1025
+      - EMAIL_USERNAME=test
+      - EMAIL_PASSWORD=test
+      - EMAIL_FROM=noreply@test.local
+      - NOTIFICATION_SERVICE_HOST=notification
+      - NOTIFICATION_SERVICE_PORT=50051
+      - NOTIFICATION_API_KEY=ci-test-api-key
+      - SUPER_ADMIN_USERNAME=admin@kirjaswappi.fi
+      - SUPER_ADMIN_PASSWORD=AdminPass1!
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:10000/actuator/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 90s
+    networks:
+      - ci-net
+
+  notification:
+    build:
+      context: ./kirjaswappi-notification
+      dockerfile: Dockerfile
+    ports:
+      - '8080:8080'
+      - '50051:50051'
+    environment:
+      - JWT_SECRET=ci-e2e-test-secret-key-minimum-32-characters-long
+      - API_KEY=ci-test-api-key
+      - ALLOWED_ORIGINS=*
+      - LOG_LEVEL=debug
+      - SHUTDOWN_TIMEOUT=10
+      - ENABLE_GRPC_REFLECTION=false
+      - NOTIFY_STRICT=false
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - ci-net
+
+networks:
+  ci-net:
+    driver: bridge
