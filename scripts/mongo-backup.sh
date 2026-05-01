@@ -24,6 +24,12 @@ mongodump \
   --gzip \
   > "${OUT_FILE}"
 
+if [ $? -ne 0 ] || [ ! -s "${OUT_FILE}" ]; then
+  echo "[$(date -u)] ERROR: mongodump failed or produced empty archive — aborting (no pruning)"
+  rm -f "${OUT_FILE}"
+  exit 1
+fi
+
 echo "[$(date -u)] Pruning archives older than ${RETENTION_DAYS} days"
 find "${OUT_DIR}" -name 'kirjaswappi-*.archive.gz' -mtime +"${RETENTION_DAYS}" -delete
 

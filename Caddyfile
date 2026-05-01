@@ -47,6 +47,10 @@
 {$PUBLIC_WS_HOST} {
 	encode zstd gzip
 
+	# Block internal endpoints from public access
+	@internal path /metrics /healthz
+	respond @internal 404
+
 	@websocket {
 		header Connection *Upgrade*
 		header Upgrade websocket
@@ -62,6 +66,7 @@
 		-Server
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 	}
 }
