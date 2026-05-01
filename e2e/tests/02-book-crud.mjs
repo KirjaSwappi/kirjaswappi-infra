@@ -1,11 +1,13 @@
 import { execSync } from 'node:child_process';
-import { get, post, setToken } from '../lib/api-client.mjs';
+import { get, post, put, del, setToken } from '../lib/api-client.mjs';
 import { state as authState } from './01-signup-login.mjs';
+
+export const state = {};
 
 export async function run() {
   setToken(authState.token);
 
-  // Ensure genre "Fiction" exists in MongoDB (Mongock seeds may not run in CI)
+  // Ensure genre "Fiction" exists in MongoDB
   const composeFile = process.env.COMPOSE_FILE || '../docker-compose.ci.yml';
   const seedEval = `if(!db.genres.findOne({name:'Fiction'})){db.genres.insertOne({name:'Fiction',parentGenre:null})}`;
   const seedCmd = `docker compose -f ${composeFile} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${seedEval}"`;
@@ -32,7 +34,7 @@ export async function run() {
     books: null,
   }));
 
-  // Minimal valid JPEG (1x1 pixel, starts with FF D8 FF)
+  // Minimal valid JPEG (1x1 pixel)
   const jpegBytes = new Uint8Array([
     0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
     0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
@@ -74,6 +76,7 @@ export async function run() {
   }
 
   const bookId = createBook.json?.id;
+  state.bookId = bookId;
   console.log(`    book created: ${bookId}`);
 
   // Get book by ID
@@ -83,10 +86,40 @@ export async function run() {
   }
   console.log('    get book OK');
 
-  // List books (public)
+  // List books (public) — response uses Spring HATEOAS _embedded format
   const listBooks = await get('/api/v1/books', { skipAuth: true });
   if (listBooks.status !== 200) {
     throw new Error(`List books failed: ${listBooks.status}`);
   }
-  console.log(`    list books OK (${listBooks.json?.content?.length || listBooks.json?.length || 0} results)`);
+  const bookList = listBooks.json?._embedded?.books || [];
+  console.log(`    list books OK (${bookList.length} results)`);
+
+  // Update book title
+  const updateForm = new FormData();
+  updateForm.append('title', 'E2E Test Book Updated');
+  updateForm.append('author', 'Test Author');
+  updateForm.append('language', 'English');
+  updateForm.append('condition', 'Good');
+  updateForm.append('genres', 'Fiction');
+  updateForm.append('swapCondition', JSON.stringify({
+    swapType: 'GiveAway',
+    giveAway: true,
+    openForOffers: false,
+    genres: null,
+    books: null,
+  }));
+  updateForm.append('coverPhotos', coverBlob, 'cover.jpg');
+
+  const updateBook = await put(`/api/v1/books/${bookId}`, updateForm);
+  if (updateBook.status !== 200) {
+    throw new Error(`Book update failed: ${updateBook.status} ${updateBook.text?.substring(0, 200)}`);
+  }
+  console.log('    book update OK');
+
+  // Verify update
+  const getUpdated = await get(`/api/v1/books/${bookId}`, { skipAuth: true });
+  if (getUpdated.json?.title !== 'E2E Test Book Updated') {
+    throw new Error(`Book title not updated: got "${getUpdated.json?.title}"`);
+  }
+  console.log('    book update verified');
 }

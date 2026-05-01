@@ -60,9 +60,11 @@ jobs:
         env:
           API_BASE_URL: http://localhost:10000
           WS_BASE_URL: http://localhost:8080
+          GRPC_URL: localhost:50051
+          NOTIFICATION_API_KEY: ci-test-api-key
           HEALTH_TIMEOUT: '180'
-          ADMIN_EMAIL: admin@kirjaswappi.fi
-          ADMIN_PASSWORD: AdminPass1!
+          COMPOSE_FILE: '../docker-compose.ci.yml'
+          DEBUG: '1'
 
       - name: Dump service logs on failure
         if: failure()

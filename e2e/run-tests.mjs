@@ -3,8 +3,10 @@ import { waitForHealthy } from './lib/wait-for-healthy.mjs';
 const tests = [
   { name: 'Signup + Login + Token Refresh', file: './tests/01-signup-login.mjs' },
   { name: 'Book CRUD', file: './tests/02-book-crud.mjs' },
-  { name: 'Swap Request', file: './tests/03-swap-request.mjs' },
-  { name: 'WebSocket Notifications', file: './tests/04-notifications.mjs' },
+  { name: 'Swap Request Lifecycle', file: './tests/03-swap-request.mjs' },
+  { name: 'Chat Messages', file: './tests/04-chat.mjs' },
+  { name: 'Inbox', file: './tests/05-inbox.mjs' },
+  { name: 'WebSocket Notifications', file: './tests/06-notifications.mjs' },
 ];
 
 async function main() {

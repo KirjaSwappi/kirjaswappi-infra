@@ -1,6 +1,9 @@
 import { execSync } from 'node:child_process';
-import { get, post, setToken } from '../lib/api-client.mjs';
+import { get, post, put, setToken } from '../lib/api-client.mjs';
 import { state as authState } from './01-signup-login.mjs';
+import { state as bookState } from './02-book-crud.mjs';
+
+export const state = {};
 
 export async function run() {
   // Create a second user to be the swap requester
@@ -34,17 +37,21 @@ export async function run() {
 
   const user2Token = login2.json.userToken;
   const user2Id = login2.json.id;
+  state.user2Token = user2Token;
+  state.user2Id = user2Id;
 
-  // Get books listed by user1
-  setToken(authState.token);
-  const booksRes = await get(`/api/v1/users/${authState.userId}/books`);
-
-  if (booksRes.status !== 200 || !booksRes.json?.content?.length) {
-    console.log('    SKIP: no books found for swap test (book-crud may have been skipped)');
-    return;
+  // Get bookId from test 02 state, or look it up
+  let bookId = bookState.bookId;
+  if (!bookId) {
+    setToken(authState.token);
+    const booksRes = await get(`/api/v1/users/${authState.userId}/books`);
+    const books = booksRes.json?._embedded?.books || [];
+    if (booksRes.status !== 200 || books.length === 0) {
+      console.log('    SKIP: no books found for swap test');
+      return;
+    }
+    bookId = books[0].id;
   }
-
-  const bookId = booksRes.json.content[0].id;
 
   // Send swap request as user2
   setToken(user2Token);
@@ -54,13 +61,43 @@ export async function run() {
     bookIdToSwapWith: bookId,
     swapType: 'GiveAway',
     askForGiveaway: true,
+    note: 'Hi, I would love this book!',
   });
 
   if (swapReq.status !== 201 && swapReq.status !== 200) {
     throw new Error(`Swap request failed: ${swapReq.status} ${swapReq.text?.substring(0, 300)}`);
   }
 
-  console.log(`    swap request created: ${swapReq.json?.id || 'OK'}`);
+  const swapRequestId = swapReq.json?.id;
+  state.swapRequestId = swapRequestId;
+  console.log(`    swap request created: ${swapRequestId}`);
+
+  // Verify initial status is Pending
+  if (swapReq.json?.swapStatus !== 'Pending') {
+    throw new Error(`Expected Pending status, got: ${swapReq.json?.swapStatus}`);
+  }
+  console.log('    status: Pending');
+
+  // Accept swap as user1 (book owner)
+  setToken(authState.token);
+  const acceptRes = await put(`/api/v1/swap-requests/${swapRequestId}/status`, {
+    status: 'Accepted',
+  });
+
+  if (acceptRes.status !== 200) {
+    throw new Error(`Accept swap failed: ${acceptRes.status} ${acceptRes.text?.substring(0, 200)}`);
+  }
+  console.log('    status: Accepted');
+
+  // Complete swap as user1
+  const completeRes = await put(`/api/v1/swap-requests/${swapRequestId}/status`, {
+    status: 'Completed',
+  });
+
+  if (completeRes.status !== 200) {
+    throw new Error(`Complete swap failed: ${completeRes.status} ${completeRes.text?.substring(0, 200)}`);
+  }
+  console.log('    status: Completed');
 
   // Restore original user token
   setToken(authState.token);

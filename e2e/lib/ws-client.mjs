@@ -1,9 +1,10 @@
 import WebSocket from 'ws';
 
 export function connectWs(userId, token) {
-  const WS_URL = process.env.WS_BASE_URL || 'ws://localhost:8080';
+  const baseUrl = process.env.WS_BASE_URL || 'http://localhost:8080';
+  const wsUrl = baseUrl.replace(/^http/, 'ws');
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`${WS_URL}/ws?token=${token}&userId=${userId}`);
+    const ws = new WebSocket(`${wsUrl}/ws?token=${token}&userId=${userId}`);
     ws.on('open', () => resolve(ws));
     ws.on('error', reject);
     setTimeout(() => reject(new Error('WebSocket connect timeout')), 10000);
