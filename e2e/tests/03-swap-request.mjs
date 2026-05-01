@@ -21,7 +21,7 @@ export async function run() {
 
   // Verify email
   const composeFile = process.env.COMPOSE_FILE || '../docker-compose.ci.yml';
-  const mongoEval = `db.users.updateOne({email:'${email2}'},{\\$set:{emailVerified:true}})`;
+  const mongoEval = `db.users.updateOne({email:'${email2}'},{\\$set:{isEmailVerified:true}})`;
   const verifyCmd = `docker compose -f ${composeFile} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${mongoEval}"`;
   execSync(verifyCmd, { stdio: 'pipe' });
 
