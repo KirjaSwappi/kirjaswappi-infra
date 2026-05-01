@@ -34,24 +34,24 @@ jobs:
 
     steps:
       - name: Checkout infra
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout backend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: KirjaSwappi/kirjaswappi-backend
           ref: ${{ inputs.backend_ref || 'main' }}
           path: kirjaswappi-backend
 
       - name: Checkout notification
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: KirjaSwappi/kirjaswappi-notification
           ref: ${{ inputs.notification_ref || 'main' }}
           path: kirjaswappi-notification
 
       - name: Checkout frontend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: KirjaSwappi/kirjaswappi-frontend
           ref: ${{ inputs.frontend_ref || 'main' }}
