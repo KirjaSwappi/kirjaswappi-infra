@@ -18,15 +18,20 @@ export async function run() {
   }
 
   try {
-    // Register message listener BEFORE sending notification to avoid race condition
+    // Register message listener BEFORE sending notification.
+    // Filter out stale notifications from earlier tests (e.g. swap request notifications).
     const messagePromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('WebSocket message timeout')), 10000);
       ws.on('message', (data) => {
-        clearTimeout(timer);
         try {
-          resolve(JSON.parse(data.toString()));
+          const msg = JSON.parse(data.toString());
+          const title = msg.Title || msg.title;
+          if (title === 'E2E Test Notification') {
+            clearTimeout(timer);
+            resolve(msg);
+          }
         } catch {
-          resolve(data.toString());
+          // ignore non-JSON messages
         }
       });
     });
