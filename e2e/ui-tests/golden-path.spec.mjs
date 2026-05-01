@@ -44,7 +44,18 @@ async function loginViaUI(page, email, password) {
   const form = page.locator('form', { has: page.locator('input[name="email"]') });
   await form.locator('input[name="email"]').fill(email);
   await form.locator('input[name="password"]').fill(password);
+
+  // Wait for the login API response before checking navigation
+  const responsePromise = page.waitForResponse(
+    resp => resp.url().includes('/users/login') && resp.request().method() === 'POST'
+  );
   await form.locator('button[type="submit"]').click();
+  const response = await responsePromise;
+
+  if (response.status() !== 200) {
+    throw new Error(`Login API returned ${response.status()}: ${await response.text()}`);
+  }
+
   await expect(page).toHaveURL('/', { timeout: 15000 });
 }
 
