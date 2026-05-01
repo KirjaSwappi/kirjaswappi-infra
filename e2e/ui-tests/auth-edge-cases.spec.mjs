@@ -16,11 +16,9 @@ test.describe('Auth Edge Cases', () => {
     await form.locator('input[name="password"]').fill('WrongPass1!');
     await form.locator('button[type="submit"]').click();
 
-    // Should show error (toast or inline message)
+    // Should show error toast or inline error message
     await expect(
-      page.locator('[role="alert"]')
-        .or(page.locator('.Toastify'))
-        .or(page.locator('text=/invalid|Invalid|incorrect|Incorrect|failed|Failed/'))
+      page.locator('.Toastify__toast').or(page.locator('text=/Invalid|invalid|incorrect|not found/'))
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -37,7 +35,7 @@ test.describe('Auth Edge Cases', () => {
 
     // Should show password mismatch error
     await expect(
-      page.locator('text=/match|Match|same|must be/')
+      page.locator('text=/Passwords must match|must match|match/')
     ).toBeVisible({ timeout: 5000 });
   });
 

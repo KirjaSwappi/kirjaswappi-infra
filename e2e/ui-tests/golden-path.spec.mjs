@@ -80,7 +80,7 @@ test.describe.serial('Golden Path: User Journey', () => {
     // Submit empty form should show validation errors
     const form = page.locator('form', { has: page.locator('input[name="firstName"]') });
     await form.locator('button[type="submit"]').click();
-    await expect(page.locator('text=/required|Required/')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=/Please enter/')).toBeVisible({ timeout: 5000 });
   });
 
   test('login with valid credentials', async ({ page }) => {
