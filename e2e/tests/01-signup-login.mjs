@@ -21,17 +21,11 @@ export async function run() {
   }
   console.log('    signup OK');
 
-  // 2. Bypass OTP: mark email as verified directly in MongoDB
-  const mongoCmd = `mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "db.users.updateOne({email:'${email}'},{\\$set:{emailVerified:true}})"`;
-  try {
-    execSync(mongoCmd, { stdio: 'pipe' });
-  } catch {
-    // If mongosh isn't on host, try via docker
-    execSync(
-      `docker compose -f docker-compose.ci.yml exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "db.users.updateOne({email:'${email}'},{\\$set:{emailVerified:true}})"`,
-      { stdio: 'pipe' }
-    );
-  }
+  // 2. Bypass OTP: mark email as verified directly in MongoDB via docker exec
+  const composeFile = process.env.COMPOSE_FILE || '../docker-compose.ci.yml';
+  const mongoEval = `db.users.updateOne({email:'${email}'},{\\$set:{emailVerified:true}})`;
+  const verifyCmd = `docker compose -f ${composeFile} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${mongoEval}"`;
+  execSync(verifyCmd, { stdio: 'pipe' });
   console.log('    email verified (MongoDB bypass)');
 
   // 3. Login

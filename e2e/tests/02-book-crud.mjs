@@ -1,40 +1,29 @@
+import { execSync } from 'node:child_process';
 import { get, post, setToken } from '../lib/api-client.mjs';
 import { state as authState } from './01-signup-login.mjs';
 
 export async function run() {
   setToken(authState.token);
 
-  // 1. Login as super admin to create a genre (books require genre)
-  const adminLogin = await post('/api/v1/users/login', {
-    email: process.env.ADMIN_EMAIL || 'admin@kirjaswappi.fi',
-    password: process.env.ADMIN_PASSWORD || 'AdminPass1!',
-  }, { skipAuth: true });
-
-  if (adminLogin.status !== 200) {
-    console.log('    SKIP: admin login failed (super admin seed may not have run)');
-    console.log(`    Status: ${adminLogin.status} Body: ${adminLogin.text?.substring(0, 200)}`);
-    return;
-  }
-
-  const adminToken = adminLogin.json.userToken;
-
-  // 2. Get genres (may already be seeded)
-  const genresRes = await get('/api/v1/genres', { headers: { Authorization: `Bearer ${adminToken}` } });
+  // 1. Get genres (Mongock may have seeded some) or seed one via MongoDB directly
+  const genresRes = await get('/api/v1/genres', { skipAuth: true });
   let genreId;
 
-  if (genresRes.status === 200 && genresRes.json?.length > 0) {
-    genreId = genresRes.json[0].id;
-    console.log(`    using existing genre: ${genresRes.json[0].name}`);
+  if (genresRes.status === 200 && genresRes.json?.parentGenres && Object.keys(genresRes.json.parentGenres).length > 0) {
+    const firstParent = Object.values(genresRes.json.parentGenres)[0];
+    genreId = firstParent.id;
+    console.log(`    using existing genre: ${Object.keys(genresRes.json.parentGenres)[0]}`);
   } else {
-    // Try to create a genre
-    const createGenre = await post('/api/v1/genres', { name: 'Fiction' }, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    if (createGenre.status === 201 || createGenre.status === 200) {
-      genreId = createGenre.json?.id;
-      console.log('    genre created: Fiction');
-    } else {
-      console.log(`    SKIP book creation: cannot create genre (${createGenre.status})`);
+    // Seed a genre directly in MongoDB via docker exec
+    const composeFile = process.env.COMPOSE_FILE || '../docker-compose.ci.yml';
+    const seedEval = `const r = db.genres.insertOne({name:'Fiction',parentGenre:null}); print(r.insertedId.toString())`;
+    const seedCmd = `docker compose -f ${composeFile} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${seedEval}"`;
+    try {
+      const result = execSync(seedCmd, { stdio: 'pipe' }).toString().trim();
+      genreId = result;
+      console.log(`    genre seeded via MongoDB: Fiction (${genreId})`);
+    } catch (err) {
+      console.log(`    SKIP: cannot seed genre (${err.message?.substring(0, 100)})`);
       return;
     }
   }
