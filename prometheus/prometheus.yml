@@ -27,7 +27,7 @@ scrape_configs:
           - backend:10000
 
   - job_name: kirjaswappi-notification
-    metrics_path: /healthz
+    metrics_path: /metrics
     static_configs:
       - targets:
           - notification:8080

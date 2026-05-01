@@ -21,9 +21,9 @@ groups:
         annotations:
           summary: KirjaSwappi notification service is DOWN
           description: |
-            The Go notification service has not responded to /healthz for at
-            least 2 minutes. Push notifications and inbox real-time updates
-            are likely failing.
+            The Go notification service has not responded to /metrics (Prometheus
+            scrape) for at least 2 minutes. Push notifications and inbox real-time
+            updates are likely failing. Use GET /healthz separately for liveness.
 
       - alert: BackendHigh5xxRate
         expr: |

@@ -15,8 +15,7 @@ route:
 
 receivers:
   - name: ops-default
-    # Configure your notification channel(s) via env-substituted webhook URLs.
-    # The placeholder below keeps the file valid; replace before launch.
+    # URLs expanded when Alertmanager starts with --config.expand-env (see compose).
     webhook_configs:
       - url: ${ALERTMANAGER_DEFAULT_WEBHOOK_URL:-http://localhost:9094/silenced}
         send_resolved: true

@@ -17,8 +17,7 @@
 {$PUBLIC_API_HOST} {
 	encode zstd gzip
 
-	# Reasonable global rate limit (per IP) — for abuse mitigation.
-	# Tune in real load tests; remove if it interferes with legitimate burst traffic.
+	# Auth-adjacent routes: force no-store (rate limiting belongs at the edge/LB or via a Caddy plugin if needed).
 	@auth path /api/v1/users/login* /api/v1/users/signup* /api/v1/users/refresh-token /api/v1/users/reset-password* /api/v1/send-otp /api/v1/verify-otp
 	header @auth Cache-Control "no-store"
 

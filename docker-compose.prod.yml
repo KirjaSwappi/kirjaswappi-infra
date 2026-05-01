@@ -1,3 +1,7 @@
+# Compose reference: https://docs.docker.com/compose/compose-file/
+# `deploy.resources` is applied by Docker Swarm; plain `docker compose` ignores it.
+# Non-Swarm CPU/memory caps use service-level `mem_limit` / `cpus` (add per service if needed).
+
 services:
   # ── Edge: TLS termination + reverse proxy ────────────────────────────
   # Caddy automatically obtains and renews Let's Encrypt certificates and
@@ -350,6 +354,7 @@ services:
     user: '65534:65534'
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
+      - --config.expand-env=true
       - --storage.path=/alertmanager
     expose:
       - '9093'
@@ -409,7 +414,9 @@ services:
   # Runs mongodump on a daily schedule. Archives land on the host volume
   # `mongo-backups` for off-site replication (rsync/S3 on the host).
   mongo-backup:
-    image: mongo:8
+    build:
+      context: .
+      dockerfile: docker/mongo-backup/Dockerfile
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -424,14 +431,10 @@ services:
       - BACKUP_CRON=${BACKUP_CRON:-0 3 * * *}
     volumes:
       - mongo-backups:/backups
-      - ./scripts:/scripts:ro
     entrypoint: ['/bin/sh', '-c']
-    # Install a minimal cron, register the schedule, and tail logs so the
-    # container stays up. Stdout from the cron job goes to docker logs.
     command:
       - |
         set -eu
-        apt-get update -qq && apt-get install -qq -y cron >/dev/null
         echo "$$BACKUP_CRON /scripts/mongo-backup.sh >> /var/log/cron.log 2>&1" > /etc/cron.d/kirjaswappi-mongo
         chmod 0644 /etc/cron.d/kirjaswappi-mongo
         crontab /etc/cron.d/kirjaswappi-mongo
