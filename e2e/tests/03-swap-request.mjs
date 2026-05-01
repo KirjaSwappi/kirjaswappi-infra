@@ -58,6 +58,16 @@ export async function run() {
   const bookCheck = await get(`/api/v1/books/${bookId}`);
   console.log(`    book owner: ${bookCheck.json?.ownerId || bookCheck.json?.owner?.id || 'unknown'}, receiver (user1): ${authState.userId}`);
 
+  // Debug: check user's books field directly in MongoDB
+  const checkBooksEval = `JSON.stringify(db.users.findOne({_id:ObjectId('${authState.userId}')}, {books:1}))`;
+  const checkBooksCmd = `docker compose -f ${composeFile} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${checkBooksEval}"`;
+  try {
+    const userDoc = execSync(checkBooksCmd, { stdio: 'pipe' }).toString().trim();
+    console.log(`    user doc books field: ${userDoc.substring(0, 200)}`);
+  } catch (err) {
+    console.log(`    could not query user doc: ${err.message?.substring(0, 100)}`);
+  }
+
   // Send swap request as user2
   setToken(user2Token);
   const swapReq = await post('/api/v1/swap-requests', {
