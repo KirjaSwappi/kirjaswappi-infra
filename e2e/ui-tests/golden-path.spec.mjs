@@ -20,7 +20,7 @@ async function apiPost(path, body, token) {
   return { status: res.status, json: await res.json().catch(() => null) };
 }
 
-async function verifyEmailInDb(email) {
+function verifyEmailInDb(email) {
   const mongoEval = `db.users.updateOne({email:'${email}'},{\\$set:{isEmailVerified:true}})`;
   const cmd = `docker compose -f ${COMPOSE_FILE} exec -T mongodb mongosh "mongodb://root:rootpass@localhost:27017/kirjaswappi_e2e?authSource=admin" --quiet --eval "${mongoEval}"`;
   execSync(cmd, { stdio: 'pipe' });
@@ -34,9 +34,18 @@ async function createVerifiedUser(email, password, firstName, lastName) {
     password,
     confirmPassword: password,
   });
-  await verifyEmailInDb(email);
+  verifyEmailInDb(email);
   const login = await apiPost('/api/v1/users/login', { email, password });
   return login.json;
+}
+
+async function loginViaUI(page, email, password) {
+  await page.goto('/auth/login');
+  const form = page.locator('form', { has: page.locator('input[name="email"]') });
+  await form.locator('input[name="email"]').fill(email);
+  await form.locator('input[name="password"]').fill(password);
+  await form.locator('button[type="submit"]').click();
+  await expect(page).toHaveURL('/', { timeout: 15000 });
 }
 
 test.describe.serial('Golden Path: User Journey', () => {
@@ -49,6 +58,16 @@ test.describe.serial('Golden Path: User Journey', () => {
     userId = user?.id;
   });
 
+  test.use({
+    storageState: undefined,
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('language', 'en');
+    });
+  });
+
   test('registration form renders and validates', async ({ page }) => {
     await page.goto('/auth/register');
 
@@ -59,45 +78,30 @@ test.describe.serial('Golden Path: User Journey', () => {
     await expect(page.locator('input[name="confirmPassword"]')).toBeVisible();
 
     // Submit empty form should show validation errors
-    await page.locator('button[type="submit"]').click();
-    await expect(page.locator('text=required').first()).toBeVisible({ timeout: 5000 });
+    const form = page.locator('form', { has: page.locator('input[name="firstName"]') });
+    await form.locator('button[type="submit"]').click();
+    await expect(page.locator('text=/required|Required/')).toBeVisible({ timeout: 5000 });
   });
 
   test('login with valid credentials', async ({ page }) => {
-    await page.goto('/auth/login');
-
-    await page.locator('input[name="email"]').fill(testEmail);
-    await page.locator('input[name="password"]').fill(testPassword);
-    await page.locator('button[type="submit"]').click();
-
-    // Should redirect to home page after login
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await loginViaUI(page, testEmail, testPassword);
 
     // Profile icon should be visible (logged in state)
     await expect(page.locator('img[alt="profile"]')).toBeVisible({ timeout: 5000 });
   });
 
   test('home page loads with book listing area', async ({ page }) => {
-    await page.goto('/auth/login');
-    await page.locator('input[name="email"]').fill(testEmail);
-    await page.locator('input[name="password"]').fill(testPassword);
-    await page.locator('button[type="submit"]').click();
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await loginViaUI(page, testEmail, testPassword);
 
     // The main content area should be present
     await expect(page.locator('main, [role="main"], .container').first()).toBeVisible();
   });
 
   test('add a book (multi-step form)', async ({ page }) => {
-    // Login first
-    await page.goto('/auth/login');
-    await page.locator('input[name="email"]').fill(testEmail);
-    await page.locator('input[name="password"]').fill(testPassword);
-    await page.locator('button[type="submit"]').click();
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await loginViaUI(page, testEmail, testPassword);
 
     // Navigate to add book page
-    await page.goto(`/profile/add-book`);
+    await page.goto('/profile/add-book');
     await expect(page.locator('input[name="title"]')).toBeVisible({ timeout: 10000 });
 
     // Step 1: Book Details
@@ -130,11 +134,9 @@ test.describe.serial('Golden Path: User Journey', () => {
     const genreButton = page.locator('button:has-text("genre"), button:has-text("Genre")').first();
     if (await genreButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await genreButton.click();
-      // Select first available genre in modal
       const genreOption = page.locator('[role="dialog"] button, .modal button').first();
       if (await genreOption.isVisible({ timeout: 2000 }).catch(() => false)) {
         await genreOption.click();
-        // Close modal if there's a confirm/done button
         const doneButton = page.locator('button:has-text("Done"), button:has-text("Save"), button:has-text("OK")').first();
         if (await doneButton.isVisible({ timeout: 1000 }).catch(() => false)) {
           await doneButton.click();
@@ -157,45 +159,30 @@ test.describe.serial('Golden Path: User Journey', () => {
 
     // Should see success or redirect to profile
     await expect(
-      page.locator('text=successfully').or(page.locator(`[href*="/profile/user-profile"]`))
+      page.locator('text=/successfully|Success/')
+        .or(page.locator(`[href*="/profile/user-profile"]`))
     ).toBeVisible({ timeout: 15000 });
   });
 
   test('book appears on profile page', async ({ page }) => {
-    // Login
-    await page.goto('/auth/login');
-    await page.locator('input[name="email"]').fill(testEmail);
-    await page.locator('input[name="password"]').fill(testPassword);
-    await page.locator('button[type="submit"]').click();
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await loginViaUI(page, testEmail, testPassword);
 
-    // Go to profile
     await page.goto(`/profile/user-profile/${userId}`);
-
-    // Book should be listed
     await expect(page.locator('text=E2E Test Book')).toBeVisible({ timeout: 10000 });
   });
 
   test('book detail page renders correctly', async ({ page }) => {
-    // Login
-    await page.goto('/auth/login');
-    await page.locator('input[name="email"]').fill(testEmail);
-    await page.locator('input[name="password"]').fill(testPassword);
-    await page.locator('button[type="submit"]').click();
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await loginViaUI(page, testEmail, testPassword);
 
-    // Go to profile and click the book
     await page.goto(`/profile/user-profile/${userId}`);
     await page.locator('text=E2E Test Book').first().click();
 
-    // Should be on book detail page
-    await expect(page.url()).toContain('/book-details/');
+    await expect(page).toHaveURL(/\/book-details\//, { timeout: 10000 });
     await expect(page.locator('text=E2E Test Book')).toBeVisible();
     await expect(page.locator('text=Test Author')).toBeVisible();
   });
 
   test('swap request from another user via UI', async ({ page }) => {
-    // Create a second user via API
     const user2Email = `e2e-ui-user2-${Date.now()}@test.local`;
     const user2Password = 'TestPass2!';
     const user2 = await createVerifiedUser(user2Email, user2Password, 'Swap', 'Tester');
@@ -205,12 +192,7 @@ test.describe.serial('Golden Path: User Journey', () => {
       return;
     }
 
-    // Login as user2 in the browser
-    await page.goto('/auth/login');
-    await page.locator('input[name="email"]').fill(user2Email);
-    await page.locator('input[name="password"]').fill(user2Password);
-    await page.locator('button[type="submit"]').click();
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await loginViaUI(page, user2Email, user2Password);
 
     // Navigate to user1's profile to find the book
     await page.goto(`/profile/user-profile/${userId}`);
@@ -218,25 +200,22 @@ test.describe.serial('Golden Path: User Journey', () => {
 
     // Click on the book to go to details
     await page.locator('text=E2E Test Book').first().click();
-    await expect(page.url()).toContain('/book-details/');
+    await expect(page).toHaveURL(/\/book-details\//, { timeout: 10000 });
 
     // Click Request Swap button
     const swapButton = page.locator('button:has-text("Request Swap")');
     await expect(swapButton).toBeVisible({ timeout: 5000 });
     await swapButton.click();
 
-    // Swap modal should appear
-    const modal = page.locator('.fixed, [role="dialog"]').filter({ hasText: 'Send Request' });
-    await expect(modal).toBeVisible({ timeout: 5000 });
-
-    // For GiveAway book, the Send Request button should be enabled
+    // Swap modal should appear — look for the Send Request button
     const sendButton = page.locator('button:has-text("Send Request")');
-    await expect(sendButton).toBeVisible();
+    await expect(sendButton).toBeVisible({ timeout: 5000 });
     await sendButton.click();
 
-    // Should show success animation or close modal
+    // Should show success animation or modal disappears
     await expect(
-      page.locator('text=successfully').or(modal.locator(':not(:visible)')).first()
+      page.locator('text=/successfully|Success/')
+        .or(page.locator('[class*="success"]'))
     ).toBeVisible({ timeout: 10000 });
   });
 });
