@@ -53,6 +53,11 @@ export async function run() {
     bookId = books[0].id;
   }
 
+  // Debug: verify book ownership before swap request
+  setToken(authState.token);
+  const bookCheck = await get(`/api/v1/books/${bookId}`);
+  console.log(`    book owner: ${bookCheck.json?.ownerId || bookCheck.json?.owner?.id || 'unknown'}, receiver (user1): ${authState.userId}`);
+
   // Send swap request as user2
   setToken(user2Token);
   const swapReq = await post('/api/v1/swap-requests', {
