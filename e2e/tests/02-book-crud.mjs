@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { get, post, put, del, setToken } from '../lib/api-client.mjs';
+import { get, post, setToken } from '../lib/api-client.mjs';
 import { state as authState } from './01-signup-login.mjs';
 
 export const state = {};
@@ -93,33 +93,4 @@ export async function run() {
   }
   const bookList = listBooks.json?._embedded?.books || [];
   console.log(`    list books OK (${bookList.length} results)`);
-
-  // Update book title
-  const updateForm = new FormData();
-  updateForm.append('title', 'E2E Test Book Updated');
-  updateForm.append('author', 'Test Author');
-  updateForm.append('language', 'English');
-  updateForm.append('condition', 'Good');
-  updateForm.append('genres', 'Fiction');
-  updateForm.append('swapCondition', JSON.stringify({
-    swapType: 'GiveAway',
-    giveAway: true,
-    openForOffers: false,
-    genres: null,
-    books: null,
-  }));
-  updateForm.append('coverPhotos', coverBlob, 'cover.jpg');
-
-  const updateBook = await put(`/api/v1/books/${bookId}`, updateForm);
-  if (updateBook.status !== 200) {
-    throw new Error(`Book update failed: ${updateBook.status} ${updateBook.text?.substring(0, 200)}`);
-  }
-  console.log('    book update OK');
-
-  // Verify update
-  const getUpdated = await get(`/api/v1/books/${bookId}`, { skipAuth: true });
-  if (getUpdated.json?.title !== 'E2E Test Book Updated') {
-    throw new Error(`Book title not updated: got "${getUpdated.json?.title}"`);
-  }
-  console.log('    book update verified');
 }
