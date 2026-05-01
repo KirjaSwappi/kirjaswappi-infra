@@ -1,0 +1,69 @@
+groups:
+  - name: kirjaswappi-core
+    interval: 30s
+    rules:
+      - alert: BackendDown
+        expr: up{job="kirjaswappi-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: KirjaSwappi backend is DOWN
+          description: |
+            The Spring Boot backend has not responded to /actuator/prometheus
+            for at least 2 minutes.
+
+      - alert: NotificationServiceDown
+        expr: up{job="kirjaswappi-notification"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: KirjaSwappi notification service is DOWN
+          description: |
+            The Go notification service has not responded to /healthz for at
+            least 2 minutes. Push notifications and inbox real-time updates
+            are likely failing.
+
+      - alert: BackendHigh5xxRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="kirjaswappi-backend",status=~"5.."}[5m]))
+          /
+          sum(rate(http_server_requests_seconds_count{job="kirjaswappi-backend"}[5m]))
+          > 0.05
+        for: 10m
+        labels:
+          severity: high
+        annotations:
+          summary: Backend 5xx rate above 5% for 10m
+          description: |
+            More than 5% of HTTP requests are failing with 5xx. Check backend
+            logs and dependency health (Mongo, Redis, RabbitMQ).
+
+      - alert: BackendJvmHeapHigh
+        expr: |
+          (sum by (instance) (jvm_memory_used_bytes{job="kirjaswappi-backend",area="heap"}))
+          /
+          (sum by (instance) (jvm_memory_max_bytes{job="kirjaswappi-backend",area="heap"}))
+          > 0.9
+        for: 15m
+        labels:
+          severity: high
+        annotations:
+          summary: Backend JVM heap >90% for 15m
+          description: |
+            JVM heap utilisation is sustained above 90%. Risk of OOM kills.
+
+      - alert: NotificationGrpcFailures
+        expr: |
+          sum(rate(grpc_server_handled_total{job="kirjaswappi-notification",grpc_code!="OK"}[5m]))
+          / sum(rate(grpc_server_handled_total{job="kirjaswappi-notification"}[5m]))
+          > 0.05
+        for: 10m
+        labels:
+          severity: high
+        annotations:
+          summary: Notification gRPC failure rate >5% for 10m
+          description: |
+            Backend → notification gRPC calls are failing. Check API_KEY mismatch,
+            network policy, or notification service logs.
