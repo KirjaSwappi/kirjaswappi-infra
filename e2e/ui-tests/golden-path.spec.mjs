@@ -97,8 +97,8 @@ test.describe.serial('Golden Path: User Journey', () => {
   test('login with valid credentials', async ({ page }) => {
     await loginViaUI(page, testEmail, testPassword);
 
-    // Profile icon should be visible (logged in state)
-    await expect(page.locator('img[alt="profile"]')).toBeVisible({ timeout: 5000 });
+    // Profile icon should be visible (logged in state) — use .first() for desktop/mobile duplicates
+    await expect(page.locator('img[alt="profile"]').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('home page loads with book listing area', async ({ page }) => {

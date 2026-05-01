@@ -16,10 +16,10 @@ test.describe('Auth Edge Cases', () => {
     await form.locator('input[name="password"]').fill('WrongPass1!');
     await form.locator('button[type="submit"]').click();
 
-    // Backend returns "Please provide valid credentials." via inline MessageToastify
+    // Backend returns error text in inline MessageToastify component
     const errorAlert = page.locator('div[role="alert"][aria-live="assertive"]');
     await expect(errorAlert).toBeVisible({ timeout: 10000 });
-    await expect(errorAlert).toContainText(/credentials|valid|not found/i);
+    await expect(errorAlert).toContainText(/does not exist|credentials|valid/i);
   });
 
   test('registration with mismatched passwords shows validation error', async ({ page }) => {
