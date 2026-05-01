@@ -1,4 +1,4 @@
-import { get, setToken } from '../lib/api-client.mjs';
+import { get, put, setToken } from '../lib/api-client.mjs';
 import { state as authState } from './01-signup-login.mjs';
 import { state as swapState } from './03-swap-request.mjs';
 
@@ -53,6 +53,17 @@ export async function run() {
     throw new Error('User2 inbox is empty — expected at least 1 conversation');
   }
   console.log(`    user2 inbox has ${items2.length} item(s)`);
+
+  // Complete the swap (deferred from test 03 so chat could be tested first)
+  setToken(authState.token);
+  const completeRes = await put(`/api/v1/swap-requests/${swapState.swapRequestId}/status`, {
+    status: 'Completed',
+  });
+
+  if (completeRes.status !== 200) {
+    throw new Error(`Complete swap failed: ${completeRes.status} ${completeRes.text?.substring(0, 200)}`);
+  }
+  console.log('    swap completed');
 
   // Restore token
   setToken(authState.token);

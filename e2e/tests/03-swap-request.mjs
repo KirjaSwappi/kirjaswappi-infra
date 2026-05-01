@@ -89,16 +89,6 @@ export async function run() {
   }
   console.log('    status: Accepted');
 
-  // Complete swap as user1
-  const completeRes = await put(`/api/v1/swap-requests/${swapRequestId}/status`, {
-    status: 'Completed',
-  });
-
-  if (completeRes.status !== 200) {
-    throw new Error(`Complete swap failed: ${completeRes.status} ${completeRes.text?.substring(0, 200)}`);
-  }
-  console.log('    status: Completed');
-
-  // Restore original user token
+  // Restore original user token (Complete step deferred until after chat test)
   setToken(authState.token);
 }
