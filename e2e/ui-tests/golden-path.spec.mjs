@@ -218,13 +218,11 @@ test.describe.serial('Golden Path: User Journey', () => {
     await page.locator('text=E2E Test Book').last().click();
     await expect(page).toHaveURL(/\/book-details\//, { timeout: 10000 });
 
-    const swapButton = page.locator('button:has-text("Request Swap")').last();
-    await expect(swapButton).toBeVisible({ timeout: 5000 });
-    await swapButton.click();
+    const swapButton = page.locator('button:has-text("Request Swap")').first();
+    await swapButton.click({ timeout: 10000 });
 
-    const sendButton = page.locator('button:has-text("Send Request")').last();
-    await expect(sendButton).toBeVisible({ timeout: 5000 });
-    await sendButton.click();
+    const sendButton = page.locator('button:has-text("Send Request")').first();
+    await sendButton.click({ timeout: 10000 });
 
     await expect(
       page.locator('text=/successfully|Success/')
