@@ -186,7 +186,7 @@ test.describe.serial('Golden Path: User Journey', () => {
 
     await loginViaUI(page, testEmail, testPassword);
     await page.goto(`/profile/user-profile/${userId}`);
-    await expect(page.locator('text=E2E Test Book')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=E2E Test Book').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('book detail page renders correctly', async ({ page }) => {
@@ -196,8 +196,8 @@ test.describe.serial('Golden Path: User Journey', () => {
     await page.locator('text=E2E Test Book').first().click();
 
     await expect(page).toHaveURL(/\/book-details\//, { timeout: 10000 });
-    await expect(page.locator('text=E2E Test Book')).toBeVisible();
-    await expect(page.locator('text=Test Author')).toBeVisible();
+    await expect(page.locator('text=E2E Test Book').first()).toBeVisible();
+    await expect(page.locator('text=Test Author').first()).toBeVisible();
   });
 
   test('swap request from another user via UI', async ({ page }) => {
@@ -213,7 +213,7 @@ test.describe.serial('Golden Path: User Journey', () => {
     await loginViaUI(page, user2Email, user2Password);
 
     await page.goto(`/profile/user-profile/${userId}`);
-    await expect(page.locator('text=E2E Test Book')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=E2E Test Book').first()).toBeVisible({ timeout: 10000 });
 
     await page.locator('text=E2E Test Book').first().click();
     await expect(page).toHaveURL(/\/book-details\//, { timeout: 10000 });
