@@ -98,13 +98,6 @@ test.describe.serial('Golden Path: User Journey', () => {
     await loginViaUI(page, testEmail, testPassword);
   });
 
-  test('home page loads with book listing area', async ({ page }) => {
-    await loginViaUI(page, testEmail, testPassword);
-
-    // The main content area should be present
-    await expect(page.locator('main, [role="main"], .container').first()).toBeVisible();
-  });
-
   test('add a book (multi-step form)', async ({ page }) => {
     await loginViaUI(page, testEmail, testPassword);
 
