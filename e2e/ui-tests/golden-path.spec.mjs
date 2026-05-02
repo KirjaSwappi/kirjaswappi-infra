@@ -223,7 +223,7 @@ test.describe.serial('Golden Path: User Journey', () => {
 
     // Select the GiveAway swap type radio in the modal
     const giveAwayOption = page.locator('text=/GiveAway|Give Away/i').first();
-    await giveAwayOption.click({ timeout: 5000 });
+    await giveAwayOption.click({ force: true, timeout: 5000 });
 
     const sendButton = page.locator('button:has-text("Send Request")').first();
     await sendButton.click({ timeout: 10000 });
