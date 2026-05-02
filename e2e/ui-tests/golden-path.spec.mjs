@@ -186,18 +186,19 @@ test.describe.serial('Golden Path: User Journey', () => {
 
     await loginViaUI(page, testEmail, testPassword);
     await page.goto(`/profile/user-profile/${userId}`);
-    await expect(page.locator('text=E2E Test Book').first()).toBeVisible({ timeout: 10000 });
+    await page.waitForSelector('text="E2E Test Book"', { timeout: 10000 });
   });
 
   test('book detail page renders correctly', async ({ page }) => {
     await loginViaUI(page, testEmail, testPassword);
 
     await page.goto(`/profile/user-profile/${userId}`);
-    await page.locator('text=E2E Test Book').first().click();
+    await page.waitForSelector('text="E2E Test Book"', { timeout: 10000 });
+    await page.locator('text=E2E Test Book').last().click();
 
     await expect(page).toHaveURL(/\/book-details\//, { timeout: 10000 });
-    await expect(page.locator('text=E2E Test Book').first()).toBeVisible();
-    await expect(page.locator('text=Test Author').first()).toBeVisible();
+    await page.waitForSelector('text="E2E Test Book"', { timeout: 5000 });
+    await page.waitForSelector('text="Test Author"', { timeout: 5000 });
   });
 
   test('swap request from another user via UI', async ({ page }) => {
@@ -213,9 +214,8 @@ test.describe.serial('Golden Path: User Journey', () => {
     await loginViaUI(page, user2Email, user2Password);
 
     await page.goto(`/profile/user-profile/${userId}`);
-    await expect(page.locator('text=E2E Test Book').first()).toBeVisible({ timeout: 10000 });
-
-    await page.locator('text=E2E Test Book').first().click();
+    await page.waitForSelector('text="E2E Test Book"', { timeout: 10000 });
+    await page.locator('text=E2E Test Book').last().click();
     await expect(page).toHaveURL(/\/book-details\//, { timeout: 10000 });
 
     const swapButton = page.locator('button:has-text("Request Swap")');
