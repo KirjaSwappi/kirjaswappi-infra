@@ -222,7 +222,7 @@ services:
       # Refuse to start with a non-cloud Spring profile (defence in depth).
       - KIRJASWAPPI_PRODUCTION=true
       # MongoDB
-      - MONGODB_URI=mongodb://${SERVICE_USER_MONGODB}:${SERVICE_PASSWORD_MONGODB}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin
+      - MONGODB_URI=mongodb://${SERVICE_USER_MONGODB}:${SERVICE_PASSWORD_MONGODB}@mongodb:27017/${MONGODB_DATABASE:-kirjaswappi}?authSource=admin
       - MONGODB_DATABASE=${MONGODB_DATABASE:-kirjaswappi}
       # Redis
       - REDIS_HOST=redis
@@ -316,7 +316,11 @@ services:
 
   # ── Monitoring stack ───────────────────────────────────────────────
   prometheus:
-    image: prom/prometheus:v2.55.0
+    # Bake config into the image to avoid fragile host file bind mounts
+    # on managed runtimes (e.g. Coolify deploy workdirs).
+    build:
+      context: .
+      dockerfile: docker/prometheus/Dockerfile
     restart: unless-stopped
     user: '65534:65534'
     command:
@@ -327,8 +331,6 @@ services:
     expose:
       - '9090'
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://localhost:9090/-/ready || exit 1']
@@ -349,7 +351,9 @@ services:
       - kirjaswappi-net
 
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    build:
+      context: .
+      dockerfile: docker/alertmanager/Dockerfile
     restart: unless-stopped
     user: '65534:65534'
     command:
@@ -361,8 +365,6 @@ services:
     environment:
       - ALERTMANAGER_DEFAULT_WEBHOOK_URL=${ALERTMANAGER_DEFAULT_WEBHOOK_URL:-}
       - ALERTMANAGER_CRITICAL_WEBHOOK_URL=${ALERTMANAGER_CRITICAL_WEBHOOK_URL:-}
-    volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     logging:
       driver: json-file
       options:
