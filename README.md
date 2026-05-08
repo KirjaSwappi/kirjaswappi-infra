@@ -89,6 +89,23 @@ The production compose file (`docker-compose.prod.yml`) includes:
 - **Caddy** — Reverse proxy with automatic HTTPS
 - **Prometheus + Alertmanager** — Monitoring & alerts
 
+## Infra Image Publishing
+
+Production deploys pull prebuilt infra images from GHCR (instead of building on the server):
+
+- `ghcr.io/kirjaswappi/kirjaswappi-prometheus`
+- `ghcr.io/kirjaswappi/kirjaswappi-alertmanager`
+- `ghcr.io/kirjaswappi/kirjaswappi-mongo-backup`
+
+These are published by `.github/workflows/build-infra-images.yml` on every push to `main` and
+tagged with:
+
+- `latest` (default branch tip)
+- full git SHA (for pinning/rollback)
+
+Set `INFRA_IMAGE_TAG` in your deployment environment to pin a specific build.
+If omitted, compose defaults to `latest`.
+
 ## Related Repositories
 
 | Repo | Description |

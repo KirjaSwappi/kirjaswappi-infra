@@ -316,11 +316,9 @@ services:
 
   # ── Monitoring stack ───────────────────────────────────────────────
   prometheus:
-    # Bake config into the image to avoid fragile host file bind mounts
-    # on managed runtimes (e.g. Coolify deploy workdirs).
-    build:
-      context: .
-      dockerfile: docker/prometheus/Dockerfile
+    # Built in CI and published to GHCR; deploys should only pull.
+    image: ghcr.io/kirjaswappi/kirjaswappi-prometheus:${INFRA_IMAGE_TAG:-latest}
+    pull_policy: always
     restart: unless-stopped
     user: '65534:65534'
     command:
@@ -351,9 +349,8 @@ services:
       - kirjaswappi-net
 
   alertmanager:
-    build:
-      context: .
-      dockerfile: docker/alertmanager/Dockerfile
+    image: ghcr.io/kirjaswappi/kirjaswappi-alertmanager:${INFRA_IMAGE_TAG:-latest}
+    pull_policy: always
     restart: unless-stopped
     user: '65534:65534'
     command:
@@ -418,9 +415,8 @@ services:
   # Env is written to /etc/kirjaswappi/cron.env at startup because cron jobs
   # do not inherit Docker environment variables.
   mongo-backup:
-    build:
-      context: .
-      dockerfile: docker/mongo-backup/Dockerfile
+    image: ghcr.io/kirjaswappi/kirjaswappi-mongo-backup:${INFRA_IMAGE_TAG:-latest}
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       mongodb:
