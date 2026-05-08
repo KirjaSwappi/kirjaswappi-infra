@@ -93,6 +93,7 @@ The production compose file (`docker-compose.prod.yml`) includes:
 
 Production deploys pull prebuilt infra images from GHCR (instead of building on the server):
 
+- `ghcr.io/kirjaswappi/kirjaswappi-caddy`
 - `ghcr.io/kirjaswappi/kirjaswappi-prometheus`
 - `ghcr.io/kirjaswappi/kirjaswappi-alertmanager`
 - `ghcr.io/kirjaswappi/kirjaswappi-mongo-backup`
@@ -105,6 +106,9 @@ tagged with:
 
 Set `INFRA_IMAGE_TAG` in your deployment environment to pin a specific build.
 If omitted, compose defaults to `latest`.
+
+When running under Coolify, the Coolify proxy owns public `80/443` and forwards
+domain traffic internally to the `caddy` service on port `80`.
 
 ### Unleash token note
 

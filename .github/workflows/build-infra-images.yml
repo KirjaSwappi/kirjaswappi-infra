@@ -5,9 +5,11 @@ on:
     branches:
       - main
     paths:
+      - 'docker/caddy/**'
       - 'docker/prometheus/**'
       - 'docker/alertmanager/**'
       - 'docker/mongo-backup/**'
+      - 'Caddyfile'
       - 'prometheus/**'
       - 'alertmanager/**'
       - 'scripts/mongo-backup.sh'
@@ -26,6 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - service: caddy
+            image: ghcr.io/kirjaswappi/kirjaswappi-caddy
+            dockerfile: docker/caddy/Dockerfile
           - service: prometheus
             image: ghcr.io/kirjaswappi/kirjaswappi-prometheus
             dockerfile: docker/prometheus/Dockerfile

@@ -3,26 +3,20 @@
 # Non-Swarm CPU/memory caps use service-level `mem_limit` / `cpus` (add per service if needed).
 
 services:
-  # ── Edge: TLS termination + reverse proxy ────────────────────────────
-  # Caddy automatically obtains and renews Let's Encrypt certificates and
-  # redirects HTTP→HTTPS. The actual hostnames are set via env vars
-  # (PUBLIC_API_HOST, PUBLIC_WS_HOST) so this works for canary and prod.
+  # ── Edge routing behind Coolify proxy ─────────────────────────────────
+  # Coolify owns public 80/443 and forwards host-based traffic to Caddy on
+  # the internal Docker network. Caddy then routes to backend/notification.
   caddy:
-    image: caddy:2.10-alpine
+    image: ghcr.io/kirjaswappi/kirjaswappi-caddy:${INFRA_IMAGE_TAG:-latest}
+    pull_policy: always
     restart: unless-stopped
     cap_add:
       - NET_BIND_SERVICE
-    ports:
-      - '80:80'
-      - '443:443'
+    expose:
+      - '80'
     environment:
       - PUBLIC_API_HOST=${PUBLIC_API_HOST:-api.kirjaswappi.fi}
       - PUBLIC_WS_HOST=${PUBLIC_WS_HOST:-ans.kirjaswappi.fi}
-      - ACME_EMAIL=${ACME_EMAIL:-ops@kirjaswappi.fi}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
     depends_on:
       - backend
       - notification
@@ -452,8 +446,6 @@ volumes:
   redis-data:
   rabbitmq-data:
   postgres-data:
-  caddy-data:
-  caddy-config:
   mongo-backups:
   prometheus-data:
   grafana-data:

@@ -1,10 +1,11 @@
 # Caddyfile for KirjaSwappi production edge.
-# Caddy auto-provisions Let's Encrypt certificates for the configured hosts and
-# redirects HTTP→HTTPS by default. The notification gRPC port (50051) is NEVER
-# exposed publicly — only the HTTP/WebSocket port (8080) is reverse-proxied.
+# Coolify terminates TLS at the edge and forwards HTTP to this Caddy instance.
+# The notification gRPC port (50051) is NEVER exposed publicly — only the
+# HTTP/WebSocket port (8080) is reverse-proxied.
 
 {
-	email {$ACME_EMAIL}
+	# HTTPS is handled by Coolify proxy in front of this service.
+	auto_https off
 	# Admin endpoint is loopback-only by default; expose for healthchecks.
 	admin :2019
 	servers {
@@ -14,7 +15,7 @@
 }
 
 # ── Backend API (REST + STOMP-over-SockJS WebSocket) ───────────────────
-{$PUBLIC_API_HOST} {
+http://{$PUBLIC_API_HOST} {
 	encode zstd gzip
 
 	# Auth-adjacent routes: force no-store (rate limiting belongs at the edge/LB or via a Caddy plugin if needed).
@@ -44,7 +45,7 @@
 }
 
 # ── Notification HTTP/WebSocket (gRPC stays inside Docker network) ────
-{$PUBLIC_WS_HOST} {
+http://{$PUBLIC_WS_HOST} {
 	encode zstd gzip
 
 	# Block internal endpoints from public access
