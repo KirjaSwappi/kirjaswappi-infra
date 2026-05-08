@@ -15,12 +15,12 @@ route:
 
 receivers:
   - name: ops-default
-    # URLs expanded when Alertmanager starts with --config.expand-env (see compose).
+    # Default sink; set to a real endpoint by editing this file.
     webhook_configs:
-      - url: ${ALERTMANAGER_DEFAULT_WEBHOOK_URL:-http://localhost:9094/silenced}
+      - url: http://localhost:9094/silenced
         send_resolved: true
 
   - name: ops-critical
     webhook_configs:
-      - url: ${ALERTMANAGER_CRITICAL_WEBHOOK_URL:-http://localhost:9094/silenced}
+      - url: http://localhost:9094/silenced
         send_resolved: true

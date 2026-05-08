@@ -352,13 +352,9 @@ services:
     user: '65534:65534'
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
-      - --config.expand-env=true
       - --storage.path=/alertmanager
     expose:
       - '9093'
-    environment:
-      - ALERTMANAGER_DEFAULT_WEBHOOK_URL=${ALERTMANAGER_DEFAULT_WEBHOOK_URL:-}
-      - ALERTMANAGER_CRITICAL_WEBHOOK_URL=${ALERTMANAGER_CRITICAL_WEBHOOK_URL:-}
     logging:
       driver: json-file
       options:
