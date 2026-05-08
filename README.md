@@ -106,6 +106,15 @@ tagged with:
 Set `INFRA_IMAGE_TAG` in your deployment environment to pin a specific build.
 If omitted, compose defaults to `latest`.
 
+### Unleash token note
+
+`UNLEASH_API_KEY` must be a **backend token** (not a personal/admin token), for example:
+
+`*:production.<hash>`
+
+This same value is used both to initialize Unleash backend tokens (`INIT_BACKEND_API_TOKENS`)
+and by the backend service for `/api/client/*` calls.
+
 ## Related Repositories
 
 | Repo | Description |

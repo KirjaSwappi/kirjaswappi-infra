@@ -181,7 +181,10 @@ services:
     environment:
       - DATABASE_URL=postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/unleash
       - DATABASE_SSL=false
+      # Keep for UI/admin bootstrapping where legacy admin tokens are used.
       - INIT_ADMIN_API_TOKENS=${UNLEASH_ADMIN_TOKEN}
+      # Backend SDK auth token(s), format: project:environment.hash (e.g. *:production.<hash>)
+      - INIT_BACKEND_API_TOKENS=${UNLEASH_API_KEY}
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:4242/health || exit 1
       interval: 10s
