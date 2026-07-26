@@ -16,10 +16,10 @@ route:
 receivers:
   - name: ops-default
     webhook_configs:
-      - url: '$ALERTMANAGER_WEBHOOK_URL'
+      - url: '${ALERTMANAGER_WEBHOOK_URL}'
         send_resolved: true
 
   - name: ops-critical
     webhook_configs:
-      - url: '$ALERTMANAGER_WEBHOOK_URL_CRITICAL'
+      - url: '${ALERTMANAGER_WEBHOOK_URL_CRITICAL}'
         send_resolved: true
