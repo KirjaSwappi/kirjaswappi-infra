@@ -1,72 +1,125 @@
 # KirjaSwappi Infrastructure
 
-[![E2E Integration Tests](https://github.com/KirjaSwappi/kirjaswappi-infra/actions/workflows/e2e.yml/badge.svg)](https://github.com/KirjaSwappi/kirjaswappi-infra/actions/workflows/e2e.yml)
+[![E2E Tests](https://github.com/KirjaSwappi/kirjaswappi-infra/actions/workflows/e2e.yml/badge.svg)](https://github.com/KirjaSwappi/kirjaswappi-infra/actions/workflows/e2e.yml)
+[![Build Infra Images](https://github.com/KirjaSwappi/kirjaswappi-infra/actions/workflows/build-infra-images.yml/badge.svg)](https://github.com/KirjaSwappi/kirjaswappi-infra/actions/workflows/build-infra-images.yml)
 
-Infrastructure, deployment, and end-to-end testing for the [KirjaSwappi](https://github.com/KirjaSwappi) book exchange platform.
+Docker Compose deployment, reverse proxy, monitoring, and end-to-end tests for [KirjaSwappi](https://kirjaswappi.fi).
 
 ## Repository Structure
 
+```text
+├── docker-compose.prod.yml      Production stack (all services)
+├── docker-compose.ci.yml        Minimal CI stack for e2e tests
+├── Caddyfile                    Reverse proxy configuration
+├── docker/                      Custom Docker image build contexts
+│   ├── caddy/
+│   ├── prometheus/
+│   ├── alertmanager/
+│   └── mongo-backup/
+├── prometheus/                  Prometheus scrape configuration
+├── alertmanager/                Alert routing rules
+├── scripts/                     Maintenance scripts (backup, etc.)
+└── e2e/                         End-to-end test suite
+    ├── tests/                   API integration tests (Node.js)
+    ├── lib/                     Shared test utilities
+    └── Dockerfile.frontend      Frontend build for CI
 ```
-├── .github/workflows/   CI/CD pipelines
-├── docker-compose.prod.yml   Production stack (all services)
-├── docker-compose.ci.yml     Minimal CI stack for e2e tests
-├── e2e/                      End-to-end test suite
-│   ├── tests/                API integration tests (Node.js)
-│   ├── ui-tests/             UI tests (Playwright + Chromium)
-│   ├── lib/                  Shared test utilities
-│   └── Dockerfile.frontend   Frontend build for CI
-├── Caddyfile                 Reverse proxy configuration
-├── docker/                   Custom Docker images
-├── prometheus/               Monitoring configuration
-├── alertmanager/             Alert routing rules
-└── scripts/                  Deployment & maintenance scripts
-```
 
-## E2E Test Suite
+## Production Stack
 
-The e2e suite validates that all KirjaSwappi services work correctly together across repository boundaries.
+`docker-compose.prod.yml` runs the complete KirjaSwappi platform:
 
-### API Tests (6 tests)
+| Service | Description |
+| ------- | ----------- |
+| backend | Spring Boot API |
+| notification | Go gRPC + WebSocket notification service |
+| mongodb | Primary datastore |
+| redis | Cache & sessions |
+| rabbitmq | Message broker (STOMP relay for WebSocket) |
+| minio | S3-compatible photo storage |
+| caddy | Reverse proxy with automatic HTTPS |
+| prometheus | Metrics collection |
+| alertmanager | Alert routing |
+| grafana | Metrics dashboards |
+| mongo-backup | Scheduled MongoDB backups |
 
-| Test | Coverage |
-|------|----------|
-| Signup & Login | User registration, email verification, authentication |
-| Book CRUD | Create, read, list books with multipart uploads |
-| Swap Requests | Request lifecycle (create, accept, reject) |
-| Chat | Real-time messaging within swap requests |
-| User Profile | Profile updates, favorites, avatar upload |
-| Notifications | gRPC push + WebSocket delivery |
-
-### UI Tests (10 tests, Playwright)
-
-| Test | Coverage |
-|------|----------|
-| Registration form | Renders fields, validates input |
-| Login | Credentials flow, redirect to home |
-| Add book form | Multi-step form rendering, step navigation |
-| Book on profile | Book appears after creation |
-| Book details | Detail page renders title/author |
-| Swap request | Full swap flow between two users |
-| Invalid login | Error message display |
-| Password mismatch | Client-side validation |
-| Protected routes | Redirect to login when unauthenticated |
-| Register link | Navigation between auth pages |
-
-### Running Locally
+### Required Environment Variables
 
 ```bash
-# Start the CI stack
-docker compose -f docker-compose.ci.yml up -d --build
+# Security — generate with: openssl rand -base64 64
+JWT_SECRET=
+ACTIVITY_HMAC_SECRET=
 
-# Run API tests
-cd e2e && node run-tests.mjs
+# Database
+MONGODB_URI=
+MONGODB_DATABASE=
 
-# Run UI tests (requires Playwright browsers)
-cd e2e && npx playwright install chromium
-cd e2e && npx playwright test
+# Services
+REDIS_PASSWORD=
+RABBITMQ_USERNAME=
+RABBITMQ_PASSWORD=
+MINIO_ROOT_USER=
+MINIO_ROOT_PASSWORD=
+
+# SMTP
+SMTP_HOST=
+SMTP_USER=
+SMTP_PASS=
+
+# Origins
+FRONTEND_URL=
+CORS_ORIGINS=
+
+# Image tags (default: latest)
+INFRA_IMAGE_TAG=
+BACKEND_IMAGE_TAG=
+NOTIFICATION_IMAGE_TAG=
+
+# Alertmanager webhooks
+ALERTMANAGER_WEBHOOK_URL=
+ALERTMANAGER_WEBHOOK_URL_CRITICAL=
 ```
 
-### Running via GitHub Actions
+### Deploy
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+## Infra Images
+
+Prebuilt infra images are published to GHCR on every push to `main`:
+
+| Image | Description |
+| ----- | ----------- |
+| `ghcr.io/kirjaswappi/kirjaswappi-caddy` | Reverse proxy |
+| `ghcr.io/kirjaswappi/kirjaswappi-prometheus` | Metrics |
+| `ghcr.io/kirjaswappi/kirjaswappi-alertmanager` | Alerts |
+| `ghcr.io/kirjaswappi/kirjaswappi-mongo-backup` | Backup |
+
+All images are tagged with `latest` and full git SHA. Set `INFRA_IMAGE_TAG` to pin a specific build.
+
+## E2E Tests
+
+The e2e suite spins up the full stack via `docker-compose.ci.yml` and validates all services together.
+
+| Area | Coverage |
+| ---- | -------- |
+| Auth | Registration, email verification, login, 2FA |
+| Books | Create, read, list, photo upload |
+| Swap requests | Full lifecycle (create → accept → complete) |
+| Chat | Real-time messaging within swap requests |
+| User profile | Updates, favorites, avatar upload |
+| Notifications | gRPC push + WebSocket delivery |
+
+### Run Locally
+
+```bash
+docker compose -f docker-compose.ci.yml up -d --build
+cd e2e && node run-tests.mjs
+```
+
+### Trigger via GitHub Actions
 
 ```bash
 gh workflow run e2e.yml \
@@ -75,71 +128,14 @@ gh workflow run e2e.yml \
   -f frontend_ref=main
 ```
 
-## Production Stack
-
-The production compose file (`docker-compose.prod.yml`) includes:
-
-- **Backend** — Spring Boot API (Java)
-- **Frontend** — React SPA served by Nginx
-- **Notification** — Go gRPC + WebSocket service
-- **MongoDB** — Primary datastore
-- **Redis** — Caching & sessions
-- **RabbitMQ** — Message broker (STOMP for WebSocket relay)
-- **MinIO** — S3-compatible object storage (book cover photos)
-- **Caddy** — Reverse proxy with automatic HTTPS
-- **Prometheus + Alertmanager** — Monitoring & alerts
-
-## Infra Image Publishing
-
-Production deploys pull prebuilt infra images from GHCR (instead of building on the server):
-
-- `ghcr.io/kirjaswappi/kirjaswappi-caddy`
-- `ghcr.io/kirjaswappi/kirjaswappi-prometheus`
-- `ghcr.io/kirjaswappi/kirjaswappi-alertmanager`
-- `ghcr.io/kirjaswappi/kirjaswappi-mongo-backup`
-
-These are published by `.github/workflows/build-infra-images.yml` on every push to `main` and
-tagged with:
-
-- `latest` (default branch tip)
-- full git SHA (for pinning/rollback)
-
-Set `INFRA_IMAGE_TAG` in your deployment environment to pin a specific build.
-If omitted, compose defaults to `latest`.
-
-Similarly, set `BACKEND_IMAGE_TAG` and `NOTIFICATION_IMAGE_TAG` to pin the
-application service images. Both default to `latest` when unset.
-
-When running under Coolify, the Coolify proxy owns public `80/443` and forwards
-domain traffic internally to the `caddy` service on port `80`.
-
-### Alertmanager webhook env vars
-
-`alertmanager/alertmanager.yml` references two env vars that **must** be set
-in the Alertmanager container environment before startup (e.g. via the compose
-`environment:` block or Coolify secrets):
-
-| Variable | Used by |
-| --- | --- |
-| `ALERTMANAGER_WEBHOOK_URL` | Default receiver — all alerts |
-| `ALERTMANAGER_WEBHOOK_URL_CRITICAL` | Critical-severity receiver |
-
-If these are unset, Alertmanager will fail to expand the URLs and alerts will
-not be delivered.
-
-### Unleash token note
-
-`UNLEASH_API_KEY` must be a **backend token** (not a personal/admin token), for example:
-
-`*:production.<hash>`
-
-This same value is used both to initialize Unleash backend tokens (`INIT_BACKEND_API_TOKENS`)
-and by the backend service for `/api/client/*` calls.
-
 ## Related Repositories
 
 | Repo | Description |
-|------|-------------|
+| ---- | ----------- |
 | [kirjaswappi-backend](https://github.com/KirjaSwappi/kirjaswappi-backend) | Java Spring Boot API |
 | [kirjaswappi-frontend](https://github.com/KirjaSwappi/kirjaswappi-frontend) | React TypeScript SPA |
-| [kirjaswappi-notification](https://github.com/KirjaSwappi/kirjaswappi-notification) | Go notification service (gRPC + WebSocket) |
+| [kirjaswappi-notification](https://github.com/KirjaSwappi/kirjaswappi-notification) | Go notification service |
+
+---
+
+© 2024–2026 KirjaSwappi. All rights reserved. See [LICENSE](LICENSE) for terms.
