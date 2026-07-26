@@ -15,12 +15,11 @@ route:
 
 receivers:
   - name: ops-default
-    # Default sink; set to a real endpoint by editing this file.
     webhook_configs:
-      - url: http://localhost:9094/silenced
+      - url: '${ALERTMANAGER_WEBHOOK_URL}'
         send_resolved: true
 
   - name: ops-critical
     webhook_configs:
-      - url: http://localhost:9094/silenced
+      - url: '${ALERTMANAGER_WEBHOOK_URL_CRITICAL}'
         send_resolved: true

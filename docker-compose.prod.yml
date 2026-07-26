@@ -199,7 +199,7 @@ services:
       - kirjaswappi-net
 
   backend:
-    image: ghcr.io/kirjaswappi/kirjaswappi-backend:latest
+    image: ghcr.io/kirjaswappi/kirjaswappi-backend:${BACKEND_IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     depends_on:
@@ -277,7 +277,7 @@ services:
       - kirjaswappi-net
 
   notification:
-    image: ghcr.io/kirjaswappi/kirjaswappi-notification:latest
+    image: ghcr.io/kirjaswappi/kirjaswappi-notification:${NOTIFICATION_IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     # Notification HTTP/WS is fronted by Caddy; gRPC stays internal-only.
@@ -353,6 +353,7 @@ services:
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
+      - --config.expand-env
     expose:
       - '9093'
     logging:
