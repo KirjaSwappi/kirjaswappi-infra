@@ -107,8 +107,25 @@ tagged with:
 Set `INFRA_IMAGE_TAG` in your deployment environment to pin a specific build.
 If omitted, compose defaults to `latest`.
 
+Similarly, set `BACKEND_IMAGE_TAG` and `NOTIFICATION_IMAGE_TAG` to pin the
+application service images. Both default to `latest` when unset.
+
 When running under Coolify, the Coolify proxy owns public `80/443` and forwards
 domain traffic internally to the `caddy` service on port `80`.
+
+### Alertmanager webhook env vars
+
+`alertmanager/alertmanager.yml` references two env vars that **must** be set
+in the Alertmanager container environment before startup (e.g. via the compose
+`environment:` block or Coolify secrets):
+
+| Variable | Used by |
+| --- | --- |
+| `ALERTMANAGER_WEBHOOK_URL` | Default receiver — all alerts |
+| `ALERTMANAGER_WEBHOOK_URL_CRITICAL` | Critical-severity receiver |
+
+If these are unset, Alertmanager will fail to expand the URLs and alerts will
+not be delivered.
 
 ### Unleash token note
 
